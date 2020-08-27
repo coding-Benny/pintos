@@ -142,6 +142,8 @@ int thread_get_load_avg (void);
 void thread_sleep (int64_t ticks);
 void thread_awake (int64_t ticks);
 
+bool cmp_thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux);
+
 int64_t get_next_tick_to_awake (void);
 void update_next_tick_to_awake (int64_t ticks);
 

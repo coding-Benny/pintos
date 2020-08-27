@@ -218,12 +218,6 @@ thread_create (const char *name, int priority,
   return tid;
 }
 
-bool
-cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
-{
-  return list_entry (a, struct thread, elem)->priority > list_entry (b, struct thread, elem)->priority;
-}
-
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -546,6 +540,12 @@ void thread_awake (int64_t wakeup_tick)
       update_next_tick_to_awake(t->wakeup_tick);
     }
   }
+}
+
+bool
+cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  return list_entry (a, struct thread, elem)->priority > list_entry (b, struct thread, elem)->priority;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
