@@ -360,12 +360,73 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+void
+donate_priority (void)
+{
+  const int NESTED_DEPTH = 8;
+
+  int depth = 0;
+  struct thread *cur = thread_current ();
+  struct lock *thread_wait_on_lock = cur->wait_on_lock;
+
+  while (thread_wait_on_lock && depth < NESTED_DEPTH)
+  {
+    depth++;
+
+    if (thread_wait_on_lock->holder == NULL)
+    {
+      break;
+    }
+    if (thread_wait_on_lock->holder->priority > cur->priority)
+    {
+      break;
+    }
+
+    thread_wait_on_lock->holder->priority = cur->priority;
+    cur = thread_wait_on_lock->holder;
+    thread_wait_on_lock = cur->wait_on_lock;
+  }
+}
+    
+void
+refresh_priority (void)
+{
+  struct thread *cur = thread_current ();
+  struct list_elem *e;
+
+  cur->priority = cur->init_priority;
+  int highest_priority = PRI_MIN;
+
+  for (e = list_begin (&cur->donations); e != list_end (&cur->donations); e = list_next (e))
+  {
+    struct thread *t = list_entry (e, struct thread, donation_elem);
+    highest_priority = t->priority > highest_priority ? t->priority : highest_priority;
+  }
+
+  cur->priority = highest_priority > cur->priority ? highest_priority : cur->priority;
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
-  test_max_priority ();
+  struct thread *cur = thread_current ();
+  int old_priority = cur->priority;
+  cur->init_priority = new_priority;
+
+  if (!thread_mlfqs)
+  {
+    refresh_priority ();
+  }
+
+  if (cur->priority > old_priority)
+  {
+    donate_priority ();
+  }
+  else if (cur->priority < old_priority)
+  {
+    test_max_priority ();
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -405,6 +466,24 @@ thread_get_recent_cpu (void)
   /* Not yet implemented. */
   return 0;
 }
+
+void
+remove_with_lock (struct lock *lock)
+{
+  struct thread *cur = thread_current ();
+  struct list_elem *e;
+
+  for (e = list_begin (&cur->donations); e  != list_end (&cur->donations); e)
+  {
+    struct thread *t = list_entry (e, struct thread, donation_elem);
+    e = list_next (e);
+    if (t->wait_on_lock == lock)
+    {
+      e = list_remove (&t->donation_elem);
+    }
+  }
+}
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -492,6 +571,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+
+  /* Initialize data structure realated to priority donation. */
+  t->init_priority = priority;
+  t->wait_on_lock = NULL;
+  list_init (&t->donations);
 }
 
 void

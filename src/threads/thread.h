@@ -90,6 +90,11 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t wakeup_tick;
+    
+    int init_priority;                  /* Initialize priority after donation. */
+    struct lock *wait_on_lock;          /* Address of lock that the thread is waiting for. */
+    struct list donations;              /* Used to consider multiple donation. */
+    struct list_elem donation_elem;     /* Used to consider multiple donation. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -147,4 +152,9 @@ void update_next_tick_to_awake (int64_t ticks);
 
 void test_max_priority (void);
 bool cmp_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
+void donate_priority (void);
+void remove_with_lock (struct lock *lock);
+void refresh_priority (void);
+
 #endif /* threads/thread.h */
